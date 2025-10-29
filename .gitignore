@@ -482,3 +482,20 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Backend (dotnet)
+backend/**/bin/
+backend/**/obj/
+backend/**/*.user
+backend/**/*.vs/
+
+# Frontend (Angular/Node)
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.vscode/
+frontend/package-lock.json
+
+# OS files
+.DS_Store
+Thumbs.db
