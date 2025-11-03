@@ -1,5 +1,6 @@
 using System.Text;
 using backend.Data;
+using backend.Endpoints;
 using backend.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -33,6 +34,7 @@ builder.Services.AddAuthentication(opt =>
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -45,7 +47,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseStaticFiles();
 
+app.MapAccountEndpoint();
 
 
 app.Run();
