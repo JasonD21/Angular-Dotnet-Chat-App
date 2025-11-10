@@ -1,17 +1,30 @@
 using System.Text;
 using backend.Data;
 using backend.Endpoints;
+using backend.Hubs;
 using backend.Models;
+using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(builder =>
+    {
+        builder.WithOrigins("http://localhost:4200", "https://localhost:4200")
+        .AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+    });
+});
+
 var JwtSetting = builder.Configuration.GetSection("JWTSetting");
 
 builder.Services.AddDbContext<AppDbContext>(x => x.UseSqlite("Data Source = backend.db"));
 builder.Services.AddIdentityCore<AppUser>().AddEntityFrameworkStores<AppDbContext>().AddDefaultTokenProviders();
+
+builder.Services.AddScoped<TokenService>();
 builder.Services.AddAuthentication(opt =>
 {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -28,6 +41,22 @@ builder.Services.AddAuthentication(opt =>
         ValidateIssuer = false,
         ValidateAudience = false,
     };
+
+    option.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hus"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
+    };
 });
 
 
@@ -35,6 +64,7 @@ builder.Services.AddAuthentication(opt =>
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddAuthorization();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -44,11 +74,17 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+app.UseCors(x => x.AllowAnyHeader()
+.AllowAnyMethod()
+.AllowCredentials()
+.WithOrigins("http://localhost:4200", "https://localhost:4200"));
+
+//app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseStaticFiles();
 
+app.MapHub<ChatHub>("hubs/chat");
 app.MapAccountEndpoint();
 
 
