@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { AuthService } from '../services/auth-service';
+import { AuthService } from '../services/auth.service';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
