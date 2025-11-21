@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../services/auth.service';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiResponse } from '../../models/api-response';
 
@@ -19,6 +19,7 @@ import { ApiResponse } from '../../models/api-response';
     MatInputModule,
     MatButtonModule,
     MatIconModule,
+    RouterLink,
   ],
   templateUrl: './login.html',
   styleUrl: './login.css',
@@ -37,13 +38,15 @@ export class Login {
     this.authService.login(this.email, this.password).subscribe({
       next: () => {
         this.authService.me().subscribe();
-        this.snackbar.open('Logged in successfully', 'Close');
+        this.snackbar.open('Logged in successfully', 'Close', {
+          duration: 5000,
+        });
       },
       error: (err: HttpErrorResponse) => {
         let error = err.error as ApiResponse<string>;
 
         this.snackbar.open(error.error, 'Close', {
-          duration: 3000,
+          duration: 5000,
         });
       },
       complete: () => {
