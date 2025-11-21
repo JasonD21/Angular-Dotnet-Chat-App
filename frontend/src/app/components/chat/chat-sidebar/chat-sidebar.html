@@ -3,11 +3,11 @@
     <div class="flex items-center">
       <img
         [src]="
-          authService.currentUser?.profilePicture ||
+          authService.currentUser?.profileImage ||
           'https://randomuser.me/api/portraits/women/11.jpg'
         "
         alt="Profile Picture"
-        class="h-10 w-10 rounded-full border-grey-100 border-2 object-cover"
+        class="h-15 w-15 rounded-full border-grey-100 border-2 object-cover"
       />
       <div class="font-medium ml-2 text-grey-500">
         {{ authService.currentUser?.fullName | titlecase }}
@@ -15,7 +15,7 @@
     </div>
     <div>
       <button mat-icon-button [matMenuTriggerFor]="menu">
-        <mat-icon>more-vert</mat-icon>
+        <mat-icon class="cursor-pointer hover:text-blue-500!">more-vert</mat-icon>
       </button>
       <mat-menu #menu="matMenu">
         <button (click)="Logout()" mat-menu-item>
@@ -39,7 +39,7 @@
       (click)="openChatWindow(user)"
       class="flex item-center border-b bg-white hover:bg-slate-200 cursor-pointer hover:rounded-md border-gray-100 px-3 gap-2 py-2"
     >
-      <img [src]="user.profilePicture" alt="image1" class="h-10 w-10 rounded-full" />
+      <img [src]="user.profileImageUrl" alt="image1" class="h-10 w-10 rounded-full" />
       <div>
         <span class="text-base text-grey-600 font-normal">{{ user.fullName | titlecase }}</span>
         <p class="text-xs text-slate-400">

@@ -1,6 +1,7 @@
 export interface User {
   id: string;
-  profilePicture: string;
+  profileImage: string;
+  profileImageUrl: string;
   photoUrl: string;
   fullName: string;
   isOnline: boolean;
