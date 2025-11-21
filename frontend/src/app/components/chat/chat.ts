@@ -1,10 +1,11 @@
 import { Component } from '@angular/core';
 import { ChatWindow } from './chat-window/chat-window';
 import { ChatSidebar } from './chat-sidebar/chat-sidebar';
+import { ChatRightSidebar } from './chat-right-sidebar/chat-right-sidebar';
 
 @Component({
   selector: 'app-chat',
-  imports: [ChatWindow, ChatSidebar],
+  imports: [ChatWindow, ChatSidebar, ChatRightSidebar],
   templateUrl: './chat.html',
   styleUrl: './chat.css',
 })

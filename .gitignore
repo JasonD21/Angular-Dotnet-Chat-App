@@ -499,3 +499,10 @@ frontend/package-lock.json
 # OS files
 .DS_Store
 Thumbs.db
+
+# 🔥 Do NOT commit the database
+backend/*.db
+backend/**/*.db
+
+# 🔥 Do NOT commit uploaded images
+backend/wwwroot/uploads/*
