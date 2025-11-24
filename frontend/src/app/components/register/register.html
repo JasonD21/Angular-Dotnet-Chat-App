@@ -1,7 +1,7 @@
 <form
   #userForm="ngForm"
   (ngSubmit)="registerForm()"
-  class="md:flex justify-center px-20 pr-50 bg-white gap-10 pt-5"
+  class="md:flex justify-center px-10 md:px-20 pr-50 bg-white gap-10 pt-5"
 >
   <div
     class="h-auto w-3/5"
@@ -13,7 +13,7 @@
       background-position: bottom;
     "
   ></div>
-  <div class="bg-white my-10 pt-5 rounded w-1/4 flex flex-col gap-3 shadow-sm drop-shadow-md">
+  <div class="bg-white my-10 pt-5 rounded md:w-1/4 flex flex-col gap-3 shadow-sm drop-shadow-md">
     <div class="text-center">
       <div class="flex justify-center">
         <img [src]="profilePicture" class="rounded-full object-cover bg-blue-800 h-24 w-24" />
@@ -107,6 +107,10 @@
       >
         Register
       </button>
+
+      <p class="font-bold text-xs text-center pb-10">
+        Already have an account? <a [routerLink]="'/login'" class="text-blue-500"> Login!</a>
+      </p>
     </div>
   </div>
 </form>

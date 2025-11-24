@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { HttpErrorResponse } from '@angular/common/http';
 
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ApiResponse } from '../../models/api-response';
 import { AuthService } from '../../services/auth.service';
 
@@ -21,6 +21,7 @@ import { AuthService } from '../../services/auth.service';
     MatInputModule,
     MatButtonModule,
     MatIconModule,
+    RouterLink,
   ],
   templateUrl: './register.html',
   styleUrl: './register.css',
