@@ -89,6 +89,8 @@ export class ChatService {
     this.hub.on('Notify', (user: User) => this.showOnlineNotification(user));
 
     this.hub.on('ReceiveNewMessage', (msg: Message) => {
+      let audio = new Audio('assets/notification.mp3');
+      audio.play();
       if (!this.isMessageForCurrentChat(msg)) {
         document.title = '(1) New Message';
         return;

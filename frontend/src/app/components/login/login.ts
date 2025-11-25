@@ -39,14 +39,14 @@ export class Login {
       next: () => {
         this.authService.me().subscribe();
         this.snackbar.open('Logged in successfully', 'Close', {
-          duration: 5000,
+          duration: 7000,
         });
       },
       error: (err: HttpErrorResponse) => {
         let error = err.error as ApiResponse<string>;
 
         this.snackbar.open(error.error, 'Close', {
-          duration: 5000,
+          duration: 7000,
         });
       },
       complete: () => {

@@ -71,13 +71,13 @@ export class Register {
     this.authService.register(formData).subscribe({
       next: () => {
         this.snackBar.open('User registered successfully', 'Close', {
-          duration: 5000,
+          duration: 7000,
         });
       },
       error: (error: HttpErrorResponse) => {
         let err = error.error as ApiResponse<string>;
         this.snackBar.open(err.error, 'Close', {
-          duration: 5000,
+          duration: 7000,
         });
       },
       complete: () => {
