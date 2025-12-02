@@ -86,7 +86,10 @@ export class ChatService {
       this.isLoading.set(false);
     });
 
-    this.hub.on('Notify', (user: User) => this.showOnlineNotification(user));
+    this.hub.on('Notify', (user: User) => {
+      console.log('Notify event received:', user);
+      this.showOnlineNotification(user);
+    });
 
     this.hub.on('ReceiveNewMessage', (msg: Message) => {
       let audio = new Audio('assets/notification.mp3');
@@ -117,14 +120,30 @@ export class ChatService {
 
   /** Desktop notification */
   private showOnlineNotification(user: User) {
-    Notification.requestPermission().then((res) => {
-      if (res === 'granted') {
-        new Notification('Active Now 🟠', {
-          body: `${user.fullName} is online now`,
-          icon: user.profileImageUrl,
-        });
-      }
-    });
+    console.log('Attempting notification for user:', user);
+    if (!('Notification' in window)) return;
+
+    const icon = user.profileImage ?? 'assets/default-icon.png';
+    if (Notification.permission === 'granted') {
+      console.log('Permission granted, creating notification...');
+      new Notification('Active Now 🟠', {
+        body: `${user.fullName} is online now`,
+        icon,
+        requireInteraction: true,
+      });
+    } else if (Notification.permission !== 'denied') {
+      console.log('Requesting permission...');
+      Notification.requestPermission().then((res) => {
+        if (res === 'granted') {
+          console.log('Permission granted after request, creating notification...');
+          new Notification('Active Now 🟠', {
+            body: `${user.fullName} is online now`,
+            icon,
+            requireInteraction: true,
+          });
+        }
+      });
+    }
   }
 
   /** Local echo */

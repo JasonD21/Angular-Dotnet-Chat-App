@@ -10,7 +10,10 @@
         {{ chatService.getStatus(chatService.currentOpenedChat()?.userName!) }}
       </span>
     </div>
-    <div>
+    <div
+      class="cursor-pointer hover:text-blue-500"
+      (click)="displayDialog(chatService.currentOpenedChat()!.id)"
+    >
       <mat-icon class="cursor-pointer hover:text-red-500!"> video_call </mat-icon>
     </div>
   </div>
