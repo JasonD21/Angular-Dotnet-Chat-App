@@ -6,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { ChatBox } from '../chat-box/chat-box';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoChatService } from '../../../services/video-chat.service';
-import { VideoChat } from '../../video-chat/video-chat';
+import { VideoChatComponent } from '../../video-chat/video-chat';
 
 @Component({
   selector: 'chat-window',
@@ -16,7 +16,7 @@ import { VideoChat } from '../../video-chat/video-chat';
 export class ChatWindow {
   @ViewChild('chatBox') chatContainer?: ElementRef;
   chatService = inject(ChatService);
-  signalR = inject(VideoChatService);
+  signalRService = inject(VideoChatService);
   dialog = inject(MatDialog);
   message: string = '';
 
@@ -27,19 +27,14 @@ export class ChatWindow {
     this.scrollToBottom();
   }
 
-  displayDialog(receiverId?: string) {
-    console.log('displayDialog called with receiverId:', receiverId);
-
-    const dialogRef = this.dialog.open(VideoChat, {
-      width: '420px',
-      height: '640px',
+  displayDialog(receiverId: string) {
+    this.signalRService.remoteUserId = receiverId;
+    this.dialog.open(VideoChatComponent, {
+      width: '400px',
+      height: '600px',
       disableClose: true,
       autoFocus: false,
-      data: { receiverId },
     });
-
-    dialogRef.afterOpened().subscribe(() => console.log('VideoChat dialog opened'));
-    dialogRef.afterClosed().subscribe(() => console.log('VideoChat dialog closed'));
   }
 
   private scrollToBottom() {

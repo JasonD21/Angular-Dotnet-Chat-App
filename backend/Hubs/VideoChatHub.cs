@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
-using System.Threading.Tasks;
 
 namespace backend.Hubs
 {
@@ -28,7 +27,7 @@ namespace backend.Hubs
         public async Task EndCall(string receiverId)
         {
             await Clients.User(receiverId)
-                .SendAsync("CallEnded", Context.UserIdentifier);
+                .SendAsync("CallEnded");
         }
     }
 }

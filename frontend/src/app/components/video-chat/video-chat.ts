@@ -1,16 +1,7 @@
-import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  Inject,
-  inject,
-  OnDestroy,
-  ViewChild,
-} from '@angular/core';
+import { Component, ElementRef, inject, OnInit, ViewChild } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { VideoChatService } from '../../services/video-chat.service';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { Subscription } from 'rxjs';
+import { MatDialogRef } from '@angular/material/dialog';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 
@@ -19,291 +10,257 @@ import { MatButtonModule } from '@angular/material/button';
   imports: [MatIconModule, CommonModule, MatButtonModule],
   templateUrl: './video-chat.html',
 })
-export class VideoChat implements AfterViewInit, OnDestroy {
+export class VideoChatComponent implements OnInit {
   @ViewChild('localVideo') localVideo!: ElementRef<HTMLVideoElement>;
   @ViewChild('remoteVideo') remoteVideo!: ElementRef<HTMLVideoElement>;
-  remoteUserId: string | undefined;
 
-  public signalR = inject(VideoChatService);
-  private dialogRef = inject(MatDialogRef<VideoChat>);
-  private pc!: RTCPeerConnection;
-  private localStream: MediaStream | null = null;
-  private localStreamPromise: Promise<MediaStream> | null = null;
-  private pendingCandidates: RTCIceCandidateInit[] = [];
+  private peerConnection!: RTCPeerConnection;
+  private dialogRef: MatDialogRef<VideoChatComponent> = inject(MatDialogRef);
+  private pendingIceCandidates: RTCIceCandidate[] = [];
+  signalRService = inject(VideoChatService);
 
-  private subs: Subscription[] = [];
-
-  constructor(@Inject(MAT_DIALOG_DATA) public data: any) {
-    console.log('VideoChat constructor, received data:', data);
-
-    if (data?.receiverId) {
-      this.signalR.remoteUserId = data.receiverId;
-    }
+  ngOnInit(): void {
+    console.log('VideoChatComponent initialized');
+    this.setupPeerConnection();
+    this.setupSignalListeners();
+    this.startLocalVideo();
   }
 
-  ngAfterViewInit(): void {
-    console.log('VideoChat ngAfterViewInit called');
-    this.initPeerConnection();
-    this.registerSignalListeners();
-    this.startLocalVideo()
-      .then(() => console.log('Local video started'))
-      .catch((e) => console.error('Local video error', e));
+  setupSignalListeners() {
+    console.log('Setting up SignalR listeners');
+    this.signalRService.hub.on('CallEnded', () => {
+      console.log('Received CallEnded from SignalR');
+      this.endCall();
+    });
+
+    this.signalRService.answerReceived.subscribe(async (data) => {
+      if (data) {
+        console.log('Answer received from:', data.senderId, data.answer);
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      }
+    });
+
+    // this.signalRService.iceCandidateReceived.subscribe(async (data) => {
+    //   if (data) {
+    //     try {
+    //       console.log('ICE candidate received from:', data.senderId, data.candidate);
+    //       await this.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+
+    //     } catch (e) {
+    //       console.error('Error adding received ice candidate', e);
+    //     }
+    //   }
+    // });
+
+    // Modify ICE candidate handler
+    this.signalRService.iceCandidateReceived.subscribe(async (data) => {
+      if (data) {
+        try {
+          console.log('ICE candidate received from:', data.senderId, data.candidate);
+          const candidate = new RTCIceCandidate(data.candidate);
+
+          // If remote description isn't set yet, buffer the candidate
+          if (!this.peerConnection.remoteDescription) {
+            console.log('Buffering ICE candidate until remote description is set');
+            this.pendingIceCandidates.push(candidate);
+          } else {
+            await this.peerConnection.addIceCandidate(candidate);
+          }
+        } catch (e) {
+          console.error('Error adding received ice candidate', e);
+        }
+      }
+    });
   }
 
-  ngOnDestroy(): void {
-    this.cleanup();
-    this.subs.forEach((s) => s.unsubscribe());
-  }
-
-  async getLocalStream(): Promise<MediaStream> {
-    if (this.localStream) {
-      // Reuse existing stream
-      return this.localStream;
-    }
-
-    try {
-      console.log('[VideoChat] requesting camera and microphone...');
-      this.localStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      return this.localStream;
-    } catch (err: any) {
-      console.error('[VideoChat] getUserMedia error:', err.name, err.message);
-      throw err;
-    }
-  }
-
-  private initPeerConnection() {
-    console.log('initPeerConnection called');
-    this.pc = new RTCPeerConnection({
+  setupPeerConnection() {
+    console.log('Setting up RTCPeerConnection');
+    this.peerConnection = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun.services.mozilla.com' },
       ],
     });
-
-    this.pc.onicecandidate = (ev) => {
-      if (ev.candidate) {
-        // send as RTCIceCandidateInit
-        this.signalR.sendIceCandidate(this.signalR.remoteUserId, ev.candidate.toJSON());
+    this.peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log('Local ICE candidate generated:', event.candidate);
+        this.signalRService.sendIceCandidate(this.signalRService.remoteUserId, event.candidate);
       }
     };
-
-    this.pc.ontrack = (ev) => {
-      // first stream in event
-      console.log('Remote track received', ev.streams[0]);
-      this.remoteVideo.nativeElement.srcObject = ev.streams[0];
-    };
-
-    // optional: monitor connection state for UI
-    this.pc.onconnectionstatechange = () => {
-      console.log('pc state', this.pc.connectionState);
-      if (
-        this.pc.connectionState === 'disconnected' ||
-        this.pc.connectionState === 'failed' ||
-        this.pc.connectionState === 'closed'
-      ) {
-        this.endCallLocalCleanup();
-      }
+    this.peerConnection.ontrack = (event) => {
+      console.log('Remote track received', event.streams[0]);
+      this.remoteVideo.nativeElement.srcObject = event.streams[0];
     };
   }
 
-  private registerSignalListeners() {
-    // incoming offer from remote
-    this.subs.push(
-      this.signalR.offerReceived.subscribe(async (data) => {
-        if (!data) return;
-        // set incomingCall flags - App handles opening this dialog; here we already open
-        // set remoteUserId already set in service
-        // keep the offer for accept flow; acceptCall will pull it from the BehaviorSubject
-        console.log('Incoming offer received:', data);
-      })
-    );
+  // async startLocalVideo() {
+  //   console.log('Starting local video');
+  //   const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  //   this.localVideo.nativeElement.srcObject = stream;
+  //   console.log('Local stream obtained:', stream);
 
-    this.subs.push(
-      this.signalR.answerReceived.subscribe(async (data) => {
-        if (!data) return;
-        try {
-          await this.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-        } catch (e) {
-          console.error('setRemoteDescription (answer) error', e);
-        }
-      })
-    );
-
-    this.subs.push(
-      this.signalR.iceCandidateReceived.subscribe(async (data) => {
-        if (!data) return;
-        try {
-          if (this.pc && this.pc.remoteDescription) {
-            await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-          } else {
-            // Remote description not set yet, queue it
-            this.pendingCandidates.push(data.candidate);
-          }
-        } catch (e) {
-          console.error('addIceCandidate error', e);
-        }
-      })
-    );
-
-    this.subs.push(
-      this.signalR.callEnded.subscribe((payload) => {
-        console.log('callEnded event received', payload);
-        this.endCallLocalCleanup();
-        this.dialogRef.close();
-      })
-    );
-  }
+  //   stream.getTracks().forEach((track) => {
+  //     console.log('Adding local track to peerConnection:', track.kind);
+  //     this.peerConnection.addTrack(track, stream);
+  //   });
+  // }
 
   async startLocalVideo() {
-    console.log('[VideoChat] startLocalVideo called');
-
-    if (this.localStream) {
-      console.log('[VideoChat] localStream already exists, tracks:', this.localStream.getTracks());
-      return;
-    }
-
-    // try {
-    //   console.log('[VideoChat] requesting camera and microphone...');
-    //   this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-    //   console.log('[VideoChat] got localStream:', this.localStream);
-
-    //   this.localVideo.nativeElement.srcObject = this.localStream;
-
-    //   if (this.pc.signalingState !== 'closed' && this.localStream) {
-    //     const senders = this.pc.getSenders();
-    //     this.localStream.getTracks().forEach((track) => {
-    //       if (!senders.find((s) => s.track === track)) {
-    //         this.pc.addTrack(track, this.localStream!);
-    //         console.log('[VideoChat] added track to pc:', track);
-    //       }
-    //     });
-    //   }
-    // } catch (e) {
-    //   console.error('[VideoChat] startLocalVideo error', e);
-    //   console.log('[VideoChat] localStream at error time:', this.localStream);
-    // }
-
-    await this.getLocalStream();
-  }
-
-  async startCall() {
+    console.log('Starting local video');
     try {
-      this.signalR.isCallActive = true;
-      const offer = await this.pc.createOffer();
-      await this.pc.setLocalDescription(offer);
-      await this.signalR.sendOffer(this.signalR.remoteUserId, offer);
-    } catch (e) {
-      console.error('startCall error', e);
-    }
-  }
-
-  async acceptCall() {
-    console.log('[VideoChat] acceptCall called');
-    const incoming = this.signalR.offerReceived.getValue();
-    if (!incoming) {
-      console.log('[VideoChat] no incoming offer');
-      return;
-    }
-
-    try {
-      // 1️⃣ Ensure we have local media
-      const localStream = await this.getLocalStream();
-
-      // 2️⃣ Set the remote description from the incoming offer
-      console.log('[VideoChat] setting remote description');
-      await this.pc.setRemoteDescription(new RTCSessionDescription(incoming.offer));
-
-      // 3️⃣ Add local tracks to the peer connection if not already added
-      const senders = this.pc.getSenders();
-      localStream.getTracks().forEach((track) => {
-        if (!senders.find((s) => s.track === track)) {
-          this.pc.addTrack(track, localStream);
-        }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
       });
+      this.localVideo.nativeElement.srcObject = stream;
+      console.log('Local stream obtained:', stream);
 
-      // 4️⃣ Create an answer and set it as local description
-      console.log('[VideoChat] creating answer...');
-      const answer = await this.pc.createAnswer();
-      await this.pc.setLocalDescription(answer);
-
-      // 5️⃣ Send the answer to the remote peer via your signaling service
-      await this.signalR.sendAnswer(this.signalR.remoteUserId, answer);
-
-      // 6️⃣ Flush any pending ICE candidates that arrived before remote description was set
-      console.log('[VideoChat] flushing pending ICE candidates:', this.pendingCandidates.length);
-      for (const candidate of this.pendingCandidates) {
-        await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+      stream.getTracks().forEach((track) => {
+        console.log('Adding local track to peerConnection:', track.kind);
+        this.peerConnection.addTrack(track, stream);
+      });
+    } catch (error) {
+      console.error('Error accessing media devices:', error);
+      // Try with just audio if video fails
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        this.localVideo.nativeElement.srcObject = null; // Clear video element
+        // Audio-only call
+        audioStream.getTracks().forEach((track) => {
+          this.peerConnection.addTrack(track, audioStream);
+        });
+      } catch (audioError) {
+        console.error('Failed to get audio too:', audioError);
       }
-      this.pendingCandidates = [];
-
-      // ✅ Mark call state flags
-      this.signalR.isCallActive = true;
-      this.signalR.incomingCall = false;
-
-      console.log('[VideoChat] acceptCall completed successfully');
-    } catch (e) {
-      console.error('[VideoChat] acceptCall error', e);
-      console.log('[VideoChat] localStream at error time:', this.localStream);
     }
   }
 
   declineCall() {
-    this.signalR.sendEndCall(this.signalR.remoteUserId);
-    this.signalR.incomingCall = false;
-    this.signalR.isCallActive = false;
-    this.dialogRef.close();
+    // this.signalRService.incomingCall = false;
+    // this.signalRService.isCallActive = false;
+    // this.signalRService.sendEndCall(this.signalRService.remoteUserId);
+    // this.dialogRef.close();
+    console.log('Call declined by user');
+    this.endCall();
   }
 
-  endCall() {
-    if (this.localStream) {
-      this.localStream.getTracks().forEach((track) => track.stop());
-      this.localStream = null;
+  async acceptCall() {
+    console.log('Accepting call from:', this.signalRService.remoteUserId);
+    this.signalRService.incomingCall = false;
+    this.signalRService.isCallActive = true;
+
+    // Further implementation for accepting the call goes here
+    let offer = await this.signalRService.offerReceived.getValue()?.offer;
+
+    if (offer) {
+      console.log('Setting remote description with offer:', offer);
+      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+      // Process any pending ICE candidates
+      this.processPendingIceCandidates();
+
+      const answer = await this.peerConnection.createAnswer();
+      console.log('Created local answer:', answer);
+      await this.peerConnection.setLocalDescription(answer);
+
+      this.signalRService.sendAnswer(this.signalRService.remoteUserId, answer);
+      console.log('Sent answer via SignalR');
+    } else {
+      console.warn('No offer available to accept');
     }
-    this.pc.close();
-    this.pc = new RTCPeerConnection();
   }
 
-  private endCallLocalCleanup() {
-    if (!this.pc) return;
-    // stop tracks and clear video elements, close pc
-    console.log('[VideoChat] ending call, stopping local tracks');
-    if (this.localStream) {
-      this.localStream.getTracks().forEach((track) => {
-        console.log('[VideoChat] stopping track:', track);
+  // Add helper method
+  private async processPendingIceCandidates() {
+    console.log('Processing', this.pendingIceCandidates.length, 'pending ICE candidates');
+    for (const candidate of this.pendingIceCandidates) {
+      try {
+        await this.peerConnection.addIceCandidate(candidate);
+        console.log('Added buffered ICE candidate');
+      } catch (e) {
+        console.error('Error adding buffered ICE candidate', e);
+      }
+    }
+    this.pendingIceCandidates = [];
+  }
+
+  // async startCall() {
+  //   console.log('Starting call to:', this.signalRService.remoteUserId);
+  //   this.signalRService.isCallActive = true;
+
+  //   // Further implementation for starting the call goes here
+  //   const offer = await this.peerConnection.createOffer();
+  //   console.log('Created local offer:', offer);
+  //   await this.peerConnection.setLocalDescription(offer);
+  //   this.signalRService.sendOffer(this.signalRService.remoteUserId, offer);
+  //   console.log('Sent offer via SignalR');
+  // }
+
+  // In VideoChatComponent, modify startCall
+  async startCall() {
+    if (!this.signalRService.hub || this.signalRService.hub.state !== 'Connected') {
+      console.error('SignalR not connected');
+      return;
+    }
+
+    console.log('Starting call to:', this.signalRService.remoteUserId);
+    this.signalRService.isCallActive = true;
+
+    // Wait a bit before creating offer to ensure tracks are added
+    setTimeout(async () => {
+      const offer = await this.peerConnection.createOffer();
+      console.log('Created local offer:', offer);
+      await this.peerConnection.setLocalDescription(offer);
+      this.signalRService.sendOffer(this.signalRService.remoteUserId, offer);
+      console.log('Sent offer via SignalR');
+    }, 1000);
+  }
+
+  async endCall() {
+    // keep reference BEFORE clearing
+    console.log('Ending call with:', this.signalRService.remoteUserId);
+    const receiverId = this.signalRService.remoteUserId;
+
+    // Clear pending ICE candidates
+    this.pendingIceCandidates = [];
+
+    // Notify the other user
+    if (receiverId) {
+      console.log('Sending end call signal to:', receiverId);
+      this.signalRService.sendEndCall(receiverId);
+    }
+
+    // Stop local stream
+    const localStream = this.localVideo.nativeElement.srcObject as MediaStream | null;
+    if (localStream) {
+      localStream.getTracks().forEach((track) => {
+        console.log('Stopping local track:', track.kind);
         track.stop();
       });
-      this.localStream = null;
     }
 
-    try {
-      if (this.remoteVideo && this.remoteVideo.nativeElement) {
-        (this.remoteVideo.nativeElement.srcObject as MediaStream | null) = null;
-      }
-      if (this.localVideo && this.localVideo.nativeElement) {
-        (this.localVideo.nativeElement.srcObject as MediaStream | null) = null;
-      }
-    } catch (e) {
-      // ignore
+    // Clear video elements
+    this.localVideo.nativeElement.srcObject = null;
+    this.remoteVideo.nativeElement.srcObject = null;
+
+    // Close peer connection
+    if (this.peerConnection) {
+      this.peerConnection.onicecandidate = null;
+      this.peerConnection.ontrack = null;
+      this.peerConnection.close();
+      this.peerConnection = null!;
+      console.log('PeerConnection closed');
     }
 
-    try {
-      if (this.pc) {
-        this.pc.close();
-      }
-    } catch (e) {
-      /* ignore */
-    }
+    // Reset UI state
+    this.signalRService.isCallActive = false;
+    this.signalRService.incomingCall = false;
+    this.signalRService.remoteUserId = '';
 
-    // reset flags
-    this.signalR.isCallActive = false;
-    this.signalR.incomingCall = false;
-    this.signalR.remoteUserId = '';
-  }
-
-  private cleanup() {
-    this.endCallLocalCleanup();
+    // Close dialog
+    console.log('Closing VideoChat dialog');
+    this.dialogRef.close();
   }
 }

@@ -3,7 +3,7 @@ import { RouterOutlet } from '@angular/router';
 import { VideoChatService } from './services/video-chat.service';
 import { AuthService } from './services/auth.service';
 import { MatDialog } from '@angular/material/dialog';
-import { VideoChat } from './components/video-chat/video-chat';
+import { VideoChatComponent } from './components/video-chat/video-chat';
 
 @Component({
   selector: 'app-root',
@@ -14,32 +14,31 @@ import { VideoChat } from './components/video-chat/video-chat';
 export class App implements OnInit {
   protected readonly title = signal('frontend');
 
-  private signalR = inject(VideoChatService);
-  private auth = inject(AuthService);
+  private signalRService = inject(VideoChatService);
+  private authService = inject(AuthService);
   private dialog = inject(MatDialog);
 
   ngOnInit(): void {
-    // If user has a token, start connection.
-    if (this.auth.token) {
-      this.signalR.startConnection().catch(console.error);
+    if (!this.authService.token) return;
+    this.signalRService.startConnection();
+    this.startOfferReceive();
+  }
 
-      // subscribe to offers and open dialog once per offer
-      this.signalR.offerReceived.subscribe((payload) => {
-        if (!payload) return;
-        // open dialog (guard to not open multiple times)
-        const alreadyOpen = (this.dialog.openDialogs || []).some(
-          (d) => d.componentInstance instanceof VideoChat
-        );
-        if (!alreadyOpen) {
-          let audio = new Audio('/assets/phone-ring.wav');
-          audio.play();
-          this.dialog.open(VideoChat, { width: '420px', height: '640px' });
-        }
-        // service sets remoteUserId & incomingCall when offer came in
+  startOfferReceive() {
+    this.signalRService.offerReceived.subscribe(async (data) => {
+      if (!data || this.signalRService.isCallActive) return;
+
+      this.signalRService.remoteUserId = data.senderId;
+      this.signalRService.incomingCall = true;
+
+      let audio = new Audio('assets/phone-ring.wav');
+      audio.play();
+
+      this.dialog.open(VideoChatComponent, {
+        width: '400px',
+        height: '600px',
+        disableClose: false,
       });
-    } else {
-      // user not authenticated — do not attempt connection
-      console.log('no auth token — skipping SignalR connect');
-    }
+    });
   }
 }

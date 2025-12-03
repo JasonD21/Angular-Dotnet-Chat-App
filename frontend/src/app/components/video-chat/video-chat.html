@@ -7,7 +7,7 @@
   ></video>
   <video class="w-full h-full object-cover bg-slate-800" #remoteVideo autoplay playsInline></video>
   <div class="absolute bottom-10 left-0 right-0 z-50 flex justify-center space-x-3 p-4">
-    @if (signalR.incomingCall) {
+    @if (signalRService.incomingCall) {
     <button
       (click)="acceptCall()"
       class="bg-green-500 flex items-center gap-2 hover:bg-gray-700 shadow-xl text-white font-bold py-2 px-4 rounded-full"
@@ -20,13 +20,13 @@
     >
       <mat-icon> call_end </mat-icon> Decline
     </button>
-    } @if (!signalR.incomingCall && !signalR.isCallActive) {
+    } @if (!signalRService.incomingCall && !signalRService.isCallActive) {
     <button
       (click)="startCall()"
       class="bg-green-500 flex items-center gap-2 hover:bg-gray-700 shadow-xl text-white font-bold py-2 px-4 rounded-full"
     >
       <mat-icon> call</mat-icon> Start Call</button
-    >} @if (!signalR.incomingCall) {
+    >} @if (!signalRService.incomingCall) {
     <button
       (click)="endCall()"
       class="bg-red-500 flex items-center gap-2 hover:bg-red-900 shadow-xl text-white font-bold py-2 px-4 rounded-full"
