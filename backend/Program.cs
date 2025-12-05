@@ -21,7 +21,7 @@ builder.Services.AddCors(options =>
 
 var JwtSetting = builder.Configuration.GetSection("JWTSetting");
 
-builder.Services.AddDbContext<AppDbContext>(x => x.UseSqlite("Data Source = backend.db"));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddIdentityCore<AppUser>().AddEntityFrameworkStores<AppDbContext>().AddDefaultTokenProviders();
 
 builder.Services.AddScoped<TokenService>();
@@ -78,6 +78,13 @@ app.UseCors(x => x.AllowAnyHeader()
 .AllowAnyMethod()
 .AllowCredentials()
 .WithOrigins("http://localhost:4200", "https://localhost:4200"));
+
+//migrate pending migrations
+using (var scope = app.Services.CreateScope())
+{
+    var dataContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    dataContext.Database.Migrate();
+}
 
 //app.UseHttpsRedirection();
 app.UseAuthentication();
