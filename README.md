@@ -1,94 +1,83 @@
-# Angular-Dotnet-Chat-App
+# Real-Time Chat App — Angular + ASP.NET Core
 
-A full-stack real-time chat application built with **Angular** (frontend) and **.NET / ASP.NET Core** (backend).  
-This project demonstrates integration with SignalR, real-time messaging, support for multiple chat rooms, basic user interactions, and provides a foundation for further enhancements (e.g. authentication, persistence, UI improvements).
+A full-stack real-time chat application with authenticated users, persistent messages, and live delivery over WebSockets.
 
-## 🚀 Features
+**Frontend:** Angular 20 · Angular Material · Tailwind CSS v4 · SignalR client
+**Backend:** ASP.NET Core (.NET 9) · SignalR · EF Core + SQL Server · ASP.NET Identity + JWT
 
-- Real-time message exchange between clients via SignalR
-- Support for multiple chat rooms / channels
-- Simple UI built with Angular for sending/receiving messages and switching between rooms
-- Clean separation between frontend and backend (Angular client + ASP.NET Core server)
-- Easy to extend: you can plug in authentication, database storage, user lists, typing indicators, etc.
+## Features
 
-## 📁 Repository Structure
+- **User accounts** — registration and login via ASP.NET Core Identity, issued a JWT by a dedicated token service
+- **Real-time messaging** — SignalR hub broadcasts messages instantly to connected clients across chat rooms
+- **Authenticated WebSockets** — the JWT is forwarded to hub connections via the `access_token` query string, so SignalR connections are authorized just like HTTP requests
+- **Message persistence** — EF Core with SQL Server; pending migrations are applied automatically at startup
+- **Video chat** — a dedicated SignalR hub handles video call signaling between peers
+- **Modern Angular frontend** — standalone Angular 20 app with Angular Material components and Tailwind CSS v4
 
-```text
-/ (root)
-│
-├── backend/                 # ASP.NET Core server (SignalR hub, APIs, etc.)
-│
-├── frontend/                # Angular client app
-│
-├── .gitignore
-├── fullstackAngularDotnetChatApp.sln   # .NET solution file
-└── README.md                # This file
+## Architecture
+┌─────────────────────┐ HTTPS (REST) ┌──────────────────────────┐
+│ Angular 20 client │ ──────────────────────────► │ ASP.NET Core (.NET 9) │
+│ Material + Tailwind│ │ Minimal API endpoints │
+│ SignalR JS client │ ◄────── WebSockets ───────► │ ChatHub · VideoChatHub │
+└─────────────────────┘ (JWT via access_token) │ Identity + JWT auth │
+│ EF Core ──► SQL Server │
+└──────────────────────────┘
+
+Notable implementation details:
+
+- **JWT over WebSockets.** Browsers can't send Authorization headers on WebSocket upgrade requests, so the backend's `JwtBearerEvents.OnMessageReceived` reads the token from the query string for any request hitting `/hubs`, letting `[Authorize]` work uniformly across REST and SignalR.
+- **Self-migrating database.** On startup the API resolves the `AppDbContext` and calls `Database.Migrate()`, so a fresh clone reaches a working schema with no manual EF commands.
+- **Minimal APIs with endpoint extensions.** Account routes are grouped in a `MapAccountEndpoint()` extension rather than MVC controllers.
+
+## Getting started
+
+### Prerequisites
+
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- [Node.js 20+](https://nodejs.org) and the Angular CLI (`npm i -g @angular/cli`)
+- SQL Server (LocalDB, Express, or a container)
+
+### 1. Backend
+
+```bash
+cd backend
 ```
 
-- **backend/** — contains the .NET project that hosts the SignalR hub, handles the real-time messaging logic, and serves as the API/server side.
-- **frontend/** — contains the Angular application which connects to the backend SignalR hub and provides the chat UI.
+In `appsettings.json` (or user secrets), set:
 
-## ✅ Prerequisites
+- `ConnectionStrings:DefaultConnection` — your SQL Server connection string
+- `JWTSetting:SecurityKey` — a long random secret for signing tokens
 
-Before running the application, make sure you have the following installed:
+Then:
 
-- [.NET SDK (version X or later)] — required for the backend
-- [Node.js & npm] — required for the frontend
-- [Angular CLI] (if you plan to build or modify the Angular client)
+```bash
+dotnet restore
+dotnet run
+```
 
-> _If you followed a specific tutorial, ensure your .NET SDK and Angular CLI versions match the tutorial’s versions for best compatibility._
+Migrations apply automatically on first run. Note the API URL printed in the console.
 
-## 🔧 Setup & Run
+### 2. Frontend
 
-1. **Clone the repository**
+```bash
+cd frontend
+npm install
+npm start
+```
 
-   ```bash
-   git clone https://github.com/JasonD21/Angular-Dotnet-Chat-App.git
-   cd Angular-Dotnet-Chat-App
-   ```
+Open `http://localhost:4200`. CORS on the backend is preconfigured for this origin.
 
-2. **Start the backend (ASP.NET Core server)**
+## Project structure
+├── backend/ ASP.NET Core API — hubs, endpoints, Identity, EF Core, migrations
+├── frontend/ Angular 20 app — components, SignalR service, Material UI
+└── fullstackAngularDotnetChatApp.sln
 
-   ```bash
-   cd backend
-   dotnet restore
-   dotnet run
-   ```
+## Roadmap
 
-   This should start the server (e.g. on `https://localhost:5431` or whichever URL/port is configured).
+- Refresh tokens (currently access-token only)
+- Typing indicators and online presence
+- Unit and integration tests
 
-3. **Install and start the frontend (Angular client)**
+## Acknowledgements
 
-   Open a new terminal:
-
-   ```bash
-   cd frontend
-   npm install
-   npm start           # or `ng serve`, as defined in package.json
-   ```
-
-   This launches the Angular app (e.g. on `http://localhost:4200`), which should connect to the running backend.
-
-   > **Note:** If backend and frontend run on different ports/domains, ensure CORS or proxy configuration is properly set to allow SignalR and HTTP requests.
-
-4. **Use the app**
-
-   - Open your browser and navigate to the Angular app URL (e.g. `http://localhost:4200`).
-   - Join or create a chat room (if room functionality is implemented).
-   - Send messages — they should appear in real time in all connected clients.
-
-## 🛠️ How It Works (High-Level Architecture)
-
-- The backend hosts a SignalR hub which acts as the central message broker. Clients connect to this hub.
-- When a client sends a message (via the Angular UI), the message is sent to the SignalR hub.
-- The hub then broadcasts the message to all connected clients (or clients in the same room), enabling real-time updates.
-- The Angular frontend subscribes to SignalR events and updates the UI whenever a new message arrives.
-
-This approach allows decoupling between UI and server logic, making it easier to extend (e.g. add user authentication, persistent chat history, multiple rooms, admin/moderation, etc.).
-
-## 📦 Dependencies & Technologies
-
-- **Frontend:** Angular, TypeScript, HTML/CSS
-- **Backend:** ASP.NET Core (C#), SignalR
-- **Communication:** WebSockets (via SignalR) for real-time messaging
-- **Project Structure:** Separated projects for backend and frontend to keep concerns modular
+Started from a tutorial foundation, then extended with JWT-authenticated hubs, ASP.NET Identity, EF Core persistence, and video chat signaling.
